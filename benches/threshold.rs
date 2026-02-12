@@ -33,8 +33,7 @@ fn measure_avg_time(system: &mut System, threads: usize, iters: usize, cutoff: f
     start.elapsed().as_secs_f64() * 1000.0 / iters as f64
 }
 
-#[test]
-fn test_scaling_benchmark() {
+fn main() {
     let cutoff = 6.0;
     println!("\nBenchmark with Cutoff = {}", cutoff);
     println!("{:>10} | {:>12} | {:>12} | {:>8}", 

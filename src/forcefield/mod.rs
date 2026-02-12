@@ -18,15 +18,23 @@ pub struct EnergyTerms {
     pub total: f64,
 }
 
-/// Represents the molecular system to be optimized.
+/// Represents a molecular system consisting of atoms, bonds, and an optional unit cell.
 pub struct System {
+    /// List of atoms in the system.
     pub atoms: Vec<Atom>,
+    /// List of chemical bonds.
     pub bonds: Vec<Bond>,
+    /// Unit cell for periodic boundary conditions.
     pub cell: UnitCell,
 }
 
 impl System {
-    /// Creates a new system and automatically infers UFF atom types.
+    /// Creates a new molecular system and automatically assigns UFF atom types.
+    ///
+    /// # Arguments
+    /// * `atoms` - Initial atom positions and elements.
+    /// * `bonds` - Connectivity and bond orders.
+    /// * `cell` - Boundary conditions (use `UnitCell::new_none()` for gas phase).
     pub fn new(atoms: Vec<Atom>, bonds: Vec<Bond>, cell: UnitCell) -> Self {
         let mut system = Self { atoms, bonds, cell };
         system.auto_assign_uff_types();

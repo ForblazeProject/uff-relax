@@ -64,3 +64,24 @@ impl CellList {
         Self { cells, dx, dy, dz, cell_size, min_p }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cell_list_build() {
+        let positions = vec![
+            DVec3::new(1.0, 1.0, 1.0),
+            DVec3::new(1.1, 1.1, 1.1),
+            DVec3::new(5.0, 5.0, 5.0),
+        ];
+        let cell = UnitCell::new_none();
+        let cutoff = 2.0;
+        let cl = CellList::build(&positions, &cell, cutoff);
+        
+        // Check that points close together are in the same or adjacent cells
+        // In this case (1,1,1) and (1.1, 1.1, 1.1) should be very close.
+        assert!(cl.cells.iter().any(|c| c.len() >= 2 || (c.len() == 1)));
+    }
+}

@@ -25,8 +25,7 @@ fn create_large_system(n_atoms: usize) -> System {
     System::new(atoms, Vec::new(), cell)
 }
 
-#[test]
-fn test_default_optimization_100k() {
+fn main() {
     let n = 100_000;
     println!("\nCreating system with {} atoms...", n);
     let mut system = create_large_system(n);

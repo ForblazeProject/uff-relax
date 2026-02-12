@@ -1,3 +1,33 @@
+//! # uff-relax
+//!
+//! `uff-relax` is a fast, parallelized molecular structure optimizer using the 
+//! Universal Force Field (UFF) and the FIRE (Fast Iterative Relaxation Engine) algorithm.
+//!
+//! ## Features
+//! - **Fast**: Optimized force calculations with spatial partitioning (Cell Lists).
+//! - **Parallel**: Automatic multi-threading using Rayon for large systems.
+//! - **Flexible**: Supports periodic boundary conditions (Orthorhombic and Triclinic).
+//! - **Easy to use**: Simple API for defining atoms, bonds, and running optimizations.
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use uff_relax::{System, Atom, Bond, UnitCell, UffOptimizer};
+//! use glam::DVec3;
+//!
+//! // Define atoms
+//! let atoms = vec![
+//!     Atom::new(6, DVec3::new(0.0, 0.0, 0.0)),
+//!     Atom::new(6, DVec3::new(1.5, 0.0, 0.0)),
+//! ];
+//! // Define bonds
+//! let bonds = vec![Bond { atom_indices: (0, 1), order: 1.0 }];
+//! // Setup system
+//! let mut system = System::new(atoms, bonds, UnitCell::new_none());
+//! // Optimize
+//! UffOptimizer::new(100, 1e-2).optimize(&mut system);
+//! ```
+
 pub mod atom;
 pub mod cell;
 pub mod forcefield;
@@ -27,10 +57,6 @@ pub fn init_parallelism(num_threads: Option<usize>) {
             .unwrap_or(4),
     };
 
-    // We can't re-initialize the global thread pool, so we only do it once.
-    // For specific thread counts in benchmarks, we'll use a local thread pool
-    // if we need to change it frequently, but for now we'll handle it via 
-    // the compute_forces parameters.
     START.call_once(|| {
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)

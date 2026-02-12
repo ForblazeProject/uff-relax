@@ -14,12 +14,16 @@ impl UffAtomType {
     }
 }
 
-/// Represents a single atom in the system.
+/// Represents an individual atom in the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Atom {
-    pub element: usize, // Atomic number
+    /// Atomic number (e.g., 1 for H, 6 for C).
+    pub element: usize,
+    /// Position in Cartesian coordinates (Å).
     pub position: DVec3,
+    /// Current force acting on the atom (kcal/mol/Å).
     pub force: DVec3,
+    /// Internal UFF atom type label (assigned automatically).
     pub uff_type: UffAtomType,
 }
 
@@ -38,6 +42,8 @@ impl Atom {
 /// Represents a chemical bond between two atoms.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bond {
+    /// Indices of the two atoms in the `System::atoms` vector.
     pub atom_indices: (usize, usize),
-    pub order: f32, // 1.0, 1.5, 2.0, 3.0
+    /// Bond order (1.0 for single, 1.5 for aromatic, 2.0 for double).
+    pub order: f32,
 }

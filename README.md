@@ -1,17 +1,18 @@
 # uff-relax
 
-A high-performance molecular geometry relaxation engine based on the **Universal Force Field (UFF)**, implemented in pure Rust.
+[![Crates.io](https://img.shields.io/crates/v/uff-relax.svg)](https://crates.io/crates/uff-relax)
+[![Docs.rs](https://docs.rs/uff-relax/badge.svg)](https://docs.rs/uff-relax)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-Designed for rapid structural optimization of everything from small organic molecules to large-scale unit cells containing hundreds of thousands of atoms.
+A high-performance, parallelized molecular structure optimizer for Rust, powered by the **Universal Force Field (UFF)** and the **FIRE** algorithm.
 
 ## Features
 
-- **Full Periodic Table Support:** Implements parameters for elements H (1) to Lr (103) based on the original UFF paper (*Rappe et al. 1992*).
-- **Parallel Processing:** Powered by `rayon` for efficient multi-threaded force calculations.
-- **Large-Scale Optimization:** Uses a high-performance `CellList` implementation to maintain $O(N)$ scaling, enabling relaxation of systems with 100,000+ atoms in seconds.
-- **Robust Convergence (FIRE):** Employs the **Fast Inertial Relaxation Engine (FIRE)** algorithm for stable and fast convergence even from highly distorted initial structures.
-- **Periodic Boundary Conditions (PBC):** Full support for orthorhombic and triclinic unit cells.
-- **Advanced Convergence Logic:** Combines $F_{\text{max}}$, $F_{\text{RMS}}$, and energy-stalling detection with rolling history averages to handle numerical noise and local instabilities.
+- 🚀 **High Performance**: Optimized force evaluations with Cell Lists for efficient neighbor searching.
+- 🧵 **Parallel Processing**: Scalable multi-threading via Rayon, automatically enabled for large systems (>1000 atoms).
+- 💠 **PBC Support**: Periodic boundary conditions for Orthorhombic and Triclinic systems.
+- 🧪 **Smart Type Assignment**: Automatically infers UFF atom types from atomic numbers and connectivity.
+- 🦀 **Pure Rust**: Fast, safe, and easy to integrate.
 
 ## Installation
 
@@ -20,6 +21,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 uff-relax = "1.0.0"
+glam = "0.31"
 ```
 
 ## Quick Start
@@ -29,48 +31,60 @@ use uff_relax::{System, Atom, Bond, UnitCell, UffOptimizer};
 use glam::DVec3;
 
 fn main() {
-    // 1. Define atoms and positions
+    // 1. Define Atoms
     let atoms = vec![
-        Atom::new(6, DVec3::new(0.0, 0.0, 0.0)), // Carbon
-        Atom::new(1, DVec3::new(1.0, 0.0, 0.0)), // Hydrogen
+        Atom::new(6, DVec3::new(0.0, 0.0, 0.0)),
+        Atom::new(6, DVec3::new(1.3, 0.0, 0.0)),
     ];
 
-    // 2. Define bonds
+    // 2. Define Bonds
     let bonds = vec![
         Bond { atom_indices: (0, 1), order: 1.0 },
     ];
 
-    // 3. Create a system (automatically infers UFF atom types)
-    let cell = UnitCell::new_none();
-    let mut system = System::new(atoms, bonds, cell);
+    // 3. Create System
+    let mut system = System::new(atoms, bonds, UnitCell::new_none());
 
-    // 4. Run the optimizer
-    let optimizer = UffOptimizer::new(1000, 0.1)
-        .with_num_threads(4)
-        .with_verbose(true);
-    
+    // 4. Run Optimizer
+    let optimizer = UffOptimizer::new(1000, 1e-3);
     optimizer.optimize(&mut system);
 
-    println!("Structural relaxation complete.");
+    println!("Final Energy: {:.4} kcal/mol", system.compute_forces().total);
 }
 ```
 
-## Performance & Scaling
+## Running Examples
 
-`uff-relax` is optimized for modern hardware:
-- **Small Molecules:** Automatically uses sequential processing to avoid threading overhead.
-- **Large Systems:** Leverages `CellList` and parallel `rayon` kernels.
-- **Continuity:** Implements a 5th-order polynomial switching function for non-bonded interactions to ensure smooth force transitions and reliable convergence.
+Try the included examples to see the optimizer in action:
 
-## How it Works
+```bash
+cargo run --example benzene
+```
 
-1. **Parameter Assignment:** Automatically infers hybridization and UFF atom types based on element and connectivity.
-2. **Spatial Partitioning:** Builds a dynamic `CellList` to accelerate non-bonded (Lennard-Jones) calculations.
-3. **Multi-Objective Convergence:** Monitors the rolling average of maximum and root-mean-square forces to ensure the entire system is physically relaxed.
+## Benchmarks
+
+This crate includes specialized benchmarks to measure scaling performance and handle large-scale systems. These are standalone binaries (`harness = false`) to ensure minimal overhead.
+
+### 1. Scaling Threshold
+Measures the efficiency of parallelization as the number of atoms increases.
+```bash
+cargo bench --bench threshold
+```
+
+### 2. Large System Stress Test
+Simulates a system with 100,000 atoms to verify stability and memory efficiency in large-scale optimizations.
+```bash
+cargo bench --bench large_system_bench
+```
 
 ## License
 
-MIT or Apache-2.0
+Licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
 
 ## Author
 

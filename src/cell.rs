@@ -83,3 +83,30 @@ impl UnitCell {
         self.matrix
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_orthorhombic_distance() {
+        let size = DVec3::new(10.0, 10.0, 10.0);
+        let cell = UnitCell::new_orthorhombic(size);
+        
+        let p1 = DVec3::new(1.0, 1.0, 1.0);
+        let p2 = DVec3::new(9.0, 9.0, 9.0);
+        
+        let dist_vec = cell.distance_vector(p1, p2);
+        // Minimum image convention: dist should be (-2, -2, -2) or (2, 2, 2) length-wise
+        assert!((dist_vec.length() - (3.0 * 2.0f64.powi(2)).sqrt()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_none_distance() {
+        let cell = UnitCell::new_none();
+        let p1 = DVec3::new(1.0, 1.0, 1.0);
+        let p2 = DVec3::new(9.0, 9.0, 9.0);
+        let dist_vec = cell.distance_vector(p1, p2);
+        assert!((dist_vec.length() - (3.0 * 8.0f64.powi(2)).sqrt()).abs() < 1e-9);
+    }
+}
