@@ -82,6 +82,26 @@ impl UnitCell {
     pub fn matrix(&self) -> DMat3 {
         self.matrix
     }
+
+    /// Wraps a position vector back into the primary cell unit.
+    pub fn wrap_vector(&self, mut p: DVec3) -> DVec3 {
+        match self.cell_type {
+            CellType::None => p,
+            CellType::Orthorhombic { size } => {
+                p.x = p.x.rem_euclid(size.x);
+                p.y = p.y.rem_euclid(size.y);
+                p.z = p.z.rem_euclid(size.z);
+                p
+            }
+            CellType::Triclinic { .. } => {
+                let mut f = self.inv_matrix * p;
+                f.x = f.x.rem_euclid(1.0);
+                f.y = f.y.rem_euclid(1.0);
+                f.z = f.z.rem_euclid(1.0);
+                self.matrix * f
+            }
+        }
+    }
 }
 
 #[cfg(test)]

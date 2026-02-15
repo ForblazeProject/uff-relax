@@ -176,7 +176,8 @@ impl UffOptimizer {
             // Verlet integration (Simplified)
             for i in 0..n {
                 velocities[i] += system.atoms[i].force * dt;
-                system.atoms[i].position += velocities[i] * dt;
+                let new_pos = system.atoms[i].position + velocities[i] * dt;
+                system.atoms[i].position = system.cell.wrap_vector(new_pos);
             }
         }
 

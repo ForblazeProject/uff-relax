@@ -19,9 +19,17 @@ pub struct UffParams {
 /// Returns UFF parameters for a given atom type label.
 pub fn get_uff_params(atom_type: &UffAtomType) -> Option<UffParams> {
     let label = atom_type.as_str();
+    let label_stem = label.trim_end_matches('_');
     
     UFF_DATA.iter()
-        .find(|&&(id, ..)| id == label || (id.ends_with('_') && label.starts_with(id)))
+        .find(|&&(id, ..)| {
+            let id_stem = id.trim_end_matches('_');
+            id == label || 
+            id.starts_with(label) || 
+            label.starts_with(id) ||
+            id.starts_with(label_stem) ||
+            label_stem.starts_with(id_stem)
+        })
         .map(|&(_, r1, theta0, x1, d1, zeta, z_star, chi, u_i)| UffParams {
             r1, theta0, x1, d1, zeta, z_star, chi, u_i,
         })

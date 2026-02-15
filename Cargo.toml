@@ -1,6 +1,6 @@
 [package]
 name = "uff-relax"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 authors = ["Forblaze Project <forblazeproject@gmail.com>"]
 description = "A high-performance, parallelized molecular structure optimizer using the Universal Force Field (UFF)."
@@ -14,6 +14,9 @@ readme = "README.md"
 glam = { version = "0.31.0", features = ["serde"] }
 rayon = "1.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
+
+[dev-dependencies]
+rand = "0.8"
 
 [[bench]]
 name = "threshold"

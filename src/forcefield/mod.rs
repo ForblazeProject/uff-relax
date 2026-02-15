@@ -99,7 +99,7 @@ impl System {
                 53 => "I_".to_string(),
                 _ => {
                     if n_neighbors == 0 { format!("{}_", symbol) } 
-                    else { format!("{}_{}", symbol, n_neighbors) }
+                    else { format!("{}_", symbol) } // Always use symbol_ for generic match
                 }
             };
             self.atoms[i].uff_type = UffAtomType(label);
@@ -185,7 +185,13 @@ impl System {
         for dx in -1..=1 {
             for dy in -1..=1 {
                 for dz in -1..=1 {
-                    let nx = ix + dx; let ny = iy + dy; let nz = iz + dz;
+                    let mut nx = ix + dx; let mut ny = iy + dy; let mut nz = iz + dz;
+                    
+                    // PBC wrap for cells
+                    if nx < 0 { nx += cl.dx as i32; } else if nx >= cl.dx as i32 { nx -= cl.dx as i32; }
+                    if ny < 0 { ny += cl.dy as i32; } else if ny >= cl.dy as i32 { ny -= cl.dy as i32; }
+                    if nz < 0 { nz += cl.dz as i32; } else if nz >= cl.dz as i32 { nz -= cl.dz as i32; }
+
                     if nx >= 0 && nx < cl.dx as i32 && ny >= 0 && ny < cl.dy as i32 && nz >= 0 && nz < cl.dz as i32 {
                         let idx = (nx as usize * cl.dy * cl.dz) + (ny as usize * cl.dz) + nz as usize;
                         neighbors.extend(&cl.cells[idx]);
@@ -197,14 +203,21 @@ impl System {
     }
 
     pub(crate) fn get_exclusion_scale(&self, i: usize, j: usize, adj: &[Vec<usize>]) -> (bool, f64) {
+        if i == j { return (true, 0.0); }
+        
+        // 1-2 neighbors
         for &n1 in &adj[i] {
             if n1 == j { return (true, 0.0); }
         }
+        
+        // 1-3 neighbors
         for &n1 in &adj[i] {
             for &n2 in &adj[n1] {
                 if n2 == j { return (true, 0.0); }
             }
         }
+        
+        // 1-4 neighbors
         for &n1 in &adj[i] {
             for &n2 in &adj[n1] {
                 for &n3 in &adj[n2] {
@@ -212,6 +225,7 @@ impl System {
                 }
             }
         }
+        
         (false, 1.0)
     }
 }
