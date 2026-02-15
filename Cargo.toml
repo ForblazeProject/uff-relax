@@ -1,6 +1,6 @@
 [package]
 name = "uff-relax"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 authors = ["Forblaze Project <forblazeproject@gmail.com>"]
 description = "A high-performance, parallelized molecular structure optimizer using the Universal Force Field (UFF)."

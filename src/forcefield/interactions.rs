@@ -46,16 +46,14 @@ pub fn calculate_lj(
     scale: f64,
 ) -> Option<(f64, DVec3)> {
     let dist_sq = dist_vec.length_squared();
-    if dist_sq < cutoff_sq && dist_sq > 1e-6 {
+    if dist_sq < cutoff_sq && dist_sq > 1e-12 {
         let dist = dist_sq.sqrt();
         let pi = get_uff_params(type_i)?;
         let pj = get_uff_params(type_j)?;
         let x_ij = (pi.x1 * pj.x1).sqrt();
         let d_ij = (pi.d1 * pj.d1).sqrt() * scale;
         
-        let mut d = dist;
-        let min_dist = x_ij * 0.4;
-        if d < min_dist { d = min_dist; }
+        let d = dist.max(x_ij * 0.1); 
         
         let r_ratio = x_ij / d;
         let r_ratio_6 = r_ratio.powi(6);
@@ -65,7 +63,6 @@ pub fn calculate_lj(
         let raw_f_mag = 12.0 * d_ij / d * (r_ratio_12 - r_ratio_6);
         
         // Switching function (5th order polynomial)
-        // r_on = 0.9 * r_off
         let r_off = cutoff_sq.sqrt();
         let r_on = 0.9 * r_off;
         
@@ -79,11 +76,16 @@ pub fn calculate_lj(
         };
         
         let energy = raw_energy * sw;
-        // F = -dU/dr = -( (dE_raw/dr)*sw + E_raw*(dsw/dr) )
-        // raw_f_mag is -dE_raw/dr
         let f_mag = raw_f_mag * sw - raw_energy * dsw;
         
-        let f_vec = dist_vec.normalize() * f_mag.clamp(-500.0, 500.0);
+        // High clamp for repulsion to prevent overlap, lower clamp for attraction to keep stability
+        let clamped_f_mag = if f_mag > 0.0 {
+            f_mag.min(10000.0) 
+        } else {
+            f_mag.max(-500.0)
+        };
+        
+        let f_vec = dist_vec.normalize() * clamped_f_mag;
         return Some((energy, f_vec));
     }
     None
