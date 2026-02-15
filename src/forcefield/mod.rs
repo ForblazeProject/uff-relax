@@ -57,8 +57,10 @@ impl System {
             let n_neighbors = neighbors.len();
             let has_order_1_5 = neighbors.iter().any(|b| (b.order - 1.5).abs() < 0.1);
             let has_order_2_0 = neighbors.iter().any(|b| (b.order - 2.0).abs() < 0.1);
+            let bond_order_sum: f32 = neighbors.iter().map(|b| b.order).sum();
 
             let label = match z {
+                1 => "H_".to_string(),
                 6 => { // Carbon
                     match n_neighbors {
                         4 => "C_3".to_string(),
@@ -67,7 +69,6 @@ impl System {
                         _ => "C_3".to_string(),
                     }
                 }
-                1 => "H_".to_string(),
                 7 => { // Nitrogen
                     match n_neighbors {
                         3 => if has_order_1_5 { "N_R".to_string() } else { "N_3".to_string() },
@@ -81,6 +82,21 @@ impl System {
                     else if n_neighbors == 1 && has_order_2_0 { "O_2".to_string() }
                     else { "O_3".to_string() }
                 }
+                9 => "F_".to_string(),
+                15 => { // Phosphorus
+                    if n_neighbors >= 4 || bond_order_sum > 4.0 { "P_3+5".to_string() }
+                    else { "P_3+3".to_string() }
+                }
+                16 => { // Sulfur
+                    if has_order_1_5 { "S_R".to_string() }
+                    else if has_order_2_0 && n_neighbors == 1 { "S_2".to_string() }
+                    else if n_neighbors == 3 || (bond_order_sum > 3.0 && bond_order_sum < 5.0) { "S_3+4".to_string() }
+                    else if n_neighbors >= 4 || bond_order_sum >= 5.0 { "S_3+6".to_string() }
+                    else { "S_3+2".to_string() }
+                }
+                17 => "Cl".to_string(),
+                35 => "Br".to_string(),
+                53 => "I_".to_string(),
                 _ => {
                     if n_neighbors == 0 { format!("{}_", symbol) } 
                     else { format!("{}_{}", symbol, n_neighbors) }
