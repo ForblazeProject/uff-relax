@@ -43,8 +43,46 @@ fn main() {
     optimizer.optimize(&mut system);
 
     println!("Optimization complete!");
+    println!("\n--- Structural Analysis ---");
     
-    // Check final C-C bond length
-    let d01 = (system.atoms[0].position - system.atoms[1].position).length();
-    println!("Final C-C bond length: {:.4} Å", d01);
+    // 1. Bond Lengths
+    println!("Bond Lengths (Å):");
+    for i in 0..6 {
+        let d_cc = (system.atoms[i].position - system.atoms[(i + 1) % 6].position).length();
+        let d_ch = (system.atoms[i].position - system.atoms[i + 6].position).length();
+        println!("  C{}-C{}: {:.4} Å | C{}-H{}: {:.4} Å", i+1, (i+1)%6 + 1, d_cc, i+1, i+7, d_ch);
+    }
+
+    // 2. Bond Angles
+    println!("\nBond Angles (deg):");
+    for j in 0..6 {
+        let i = (j + 5) % 6;
+        let k = (j + 1) % 6;
+        let p_j = system.atoms[j].position;
+        let p_i = system.atoms[i].position;
+        let p_k = system.atoms[k].position;
+        let v_ji = p_i - p_j;
+        let v_jk = p_k - p_j;
+        let angle = v_ji.angle_between(v_jk).to_degrees();
+        println!("  C{}-C{}-C{}: {:.2}°", i+1, j+1, k+1, angle);
+    }
+
+    // 3. Dihedral Angles (Planarity)
+    println!("\nDihedral Angles (deg) - for planarity check:");
+    for i in 0..6 {
+        let j = (i + 1) % 6;
+        let k = (i + 2) % 6;
+        let l = (i + 3) % 6;
+        let p1 = system.atoms[i].position;
+        let p2 = system.atoms[j].position;
+        let p3 = system.atoms[k].position;
+        let p4 = system.atoms[l].position;
+        let b1 = p2 - p1; let b2 = p3 - p2; let b3 = p4 - p3;
+        let n1 = b1.cross(b2).normalize();
+        let n2 = b2.cross(b3).normalize();
+        let m1 = n1.cross(b2.normalize());
+        let x = n1.dot(n2); let y = m1.dot(n2);
+        let phi = y.atan2(x).to_degrees();
+        println!("  C{}-C{}-C{}-C{}: {:.2}°", i+1, j+1, k+1, l+1, phi);
+    }
 }

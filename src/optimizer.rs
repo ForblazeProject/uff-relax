@@ -15,14 +15,12 @@ pub struct UffOptimizer {
     pub cutoff: f64,
     /// Number of steps to average for convergence criteria.
     pub history_size: usize,
+    /// Maximum distance an atom can move in a single step (Å).
+    pub max_displacement: f64,
 }
 
 impl UffOptimizer {
     /// Creates a new optimizer with default settings.
-    ///
-    /// # Arguments
-    /// * `max_iterations` - Maximum number of steps.
-    /// * `force_threshold` - Convergence threshold for forces.
     pub fn new(max_iterations: usize, force_threshold: f64) -> Self {
         Self {
             max_iterations,
@@ -31,7 +29,13 @@ impl UffOptimizer {
             num_threads: 0,
             cutoff: 6.0,
             history_size: 10,
+            max_displacement: 0.5,
         }
+    }
+
+    pub fn with_max_displacement(mut self, max: f64) -> Self {
+        self.max_displacement = max;
+        self
     }
 
     pub fn with_num_threads(mut self, num_threads: usize) -> Self {
@@ -57,6 +61,14 @@ impl UffOptimizer {
     /// Optimized structural geometry using the FIRE algorithm.
     pub fn optimize(&self, system: &mut System) {
         let n = system.atoms.len();
+        
+        // Initial wrap only if periodic boundary conditions exist
+        if !matches!(system.cell.cell_type, crate::cell::CellType::None) {
+            for atom in &mut system.atoms {
+                atom.position = system.cell.wrap_vector(atom.position);
+            }
+        }
+
         let mut velocities = vec![DVec3::ZERO; n];
         
         let mut dt = 0.02;
@@ -153,8 +165,9 @@ impl UffOptimizer {
 
             for i in 0..n {
                 let f_norm = system.atoms[i].force.length();
+                let v_norm = velocities[i].length();
                 if f_norm > 1e-9 {
-                    velocities[i] = (1.0 - alpha) * velocities[i] + alpha * (system.atoms[i].force / f_norm) * velocities[i].length();
+                    velocities[i] = (1.0 - alpha) * velocities[i] + alpha * (system.atoms[i].force / f_norm) * v_norm;
                 }
             }
 
@@ -173,26 +186,125 @@ impl UffOptimizer {
                 }
             }
 
-            // Verlet integration (Simplified)
+            // Semi-implicit Euler integration (Standard for FIRE)
             for i in 0..n {
                 velocities[i] += system.atoms[i].force * dt;
-                let new_pos = system.atoms[i].position + velocities[i] * dt;
+                let mut move_vec = velocities[i] * dt;
+                
+                // Displacement clamping
+                let move_len = move_vec.length();
+                if move_len > self.max_displacement {
+                    move_vec *= self.max_displacement / move_len;
+                    velocities[i] = move_vec / dt; // Sync velocity
+                }
+
+                let new_pos = system.atoms[i].position + move_vec;
                 system.atoms[i].position = system.cell.wrap_vector(new_pos);
             }
         }
 
-        if self.verbose {
-            let duration = start_time.elapsed();
-            let final_energy = system.compute_forces_with_threads(self.num_threads, self.cutoff);
-            println!("{:-<80}", "");
-            println!("=== Optimization Finished ===");
-            println!("Reason: {:<20}", final_status);
-            println!("Total Time: {:<10.3?} (Avg: {:.3?} / step)", duration, duration / (final_iter + 1) as u32);
-            println!("Final Energy: {:<15.4} kcal/mol", final_energy.total);
-            println!("Final Fmax:   {:<15.4} kcal/mol/Å", fmax_history.back().unwrap_or(&0.0));
-            println!("Final FRMS:   {:<15.4} kcal/mol/Å", frms_history.back().unwrap_or(&0.0));
-            println!("{:>80}", "(c) 2026 Forblaze Project");
-            println!("{:-<80}\n", "");
+                if self.verbose {
+
+                    let duration = start_time.elapsed();
+
+                    let final_energy = system.compute_forces_with_threads(self.num_threads, self.cutoff);
+
+                    
+
+                                // Calculate minimum interatomic distance
+
+                    
+
+                                let mut min_dist = f64::MAX;
+
+                    
+
+                                let mut min_pair = (0, 0);
+
+                    
+
+                                for i in 0..n {
+
+                    
+
+                                    for j in i + 1..n {
+
+                    
+
+                                        let d = system.cell.distance_vector(system.atoms[i].position, system.atoms[j].position).length();
+
+                    
+
+                                        if d < min_dist { 
+
+                    
+
+                                            min_dist = d;
+
+                    
+
+                                            min_pair = (i, j);
+
+                    
+
+                                        }
+
+                    
+
+                                    }
+
+                    
+
+                                }
+
+                    
+
+                    
+
+                    
+
+                                println!("{:-<80}", "");
+
+                    
+
+                                println!("=== Optimization Finished ===");
+
+                    
+
+                                println!("Reason: {:<20}", final_status);
+
+                    
+
+                                println!("Total Time: {:<10.3?} (Avg: {:.3?} / step)", duration, duration / (final_iter + 1) as u32);
+
+                    
+
+                                println!("Final Energy: {:<15.4} kcal/mol", final_energy.total);
+
+                    
+
+                                println!("Final Fmax:   {:<15.4} kcal/mol/Å", fmax_history.back().unwrap_or(&0.0));
+
+                    
+
+                                println!("Final FRMS:   {:<15.4} kcal/mol/Å", frms_history.back().unwrap_or(&0.0));
+
+                    
+
+                                println!("Min Distance: {:<15.4} Å (Atoms {} and {})", min_dist, min_pair.0 + 1, min_pair.1 + 1);
+
+                    
+
+                    
+
+                    println!("{:>80}", "(c) 2026 Forblaze Project");
+
+                    println!("{:-<80}\n", "");
+
+                }
+
+            }
+
         }
-    }
-}
+
+        

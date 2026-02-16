@@ -107,26 +107,50 @@ pub fn calculate_angle(
     let theta0_rad = pj_param.theta0.to_radians();
     let cos_theta0 = theta0_rad.cos();
 
-    let r0_ij = pi_param.r1 + pj_param.r1;
-    let r0_jk = pk_param.r1 + pj_param.r1;
-    let r0_ik_sq = (r0_ij*r0_ij + r0_jk*r0_jk - 2.0*r0_ij*r0_jk*cos_theta0).max(1e-6);
-    let r0_ik = r0_ik_sq.sqrt();
-    let k_ijk = 664.12 * pi_param.z_star * pk_param.z_star / (r0_ik.powi(5)) * 
-                (3.0 * r0_ij * r0_jk * (1.0 - cos_theta0.powi(2)) - r0_ik_sq * cos_theta0);
+    // Force constant K_ijk (Eq. 11-13 in UFF paper)
+    let r_ij = pi_param.r1 + pj_param.r1;
+    let r_jk = pk_param.r1 + pj_param.r1;
+    let r_ik_sq = (r_ij*r_ij + r_jk*r_jk - 2.0*r_ij*r_jk*cos_theta0).max(1e-6);
+    let r_ik = r_ik_sq.sqrt();
+    let k_ijk = 664.12 * pi_param.z_star * pk_param.z_star / (r_ik.powi(5)) * 
+                (3.0 * r_ij * r_jk * (1.0 - cos_theta0.powi(2)) - r_ik_sq * cos_theta0);
 
-    let theta = cos_theta.acos();
-    let sin_theta = (1.0 - cos_theta * cos_theta).sqrt().max(1e-6);
-    let d_e_d_theta = k_ijk * (theta - theta0_rad);
-    let energy = 0.5 * k_ijk * (theta - theta0_rad).powi(2);
+    let (energy, d_e_d_cos_theta) = if (theta0_rad - std::f64::consts::PI).abs() < 1e-4 {
+        // Linear case (theta0 = 180)
+        // E = K/2 * (1 + cos(theta))
+        let energy = k_ijk * (1.0 + cos_theta);
+        let d_e_d_cos_theta = k_ijk;
+        (energy, d_e_d_cos_theta)
+    } else {
+        // Non-linear case (sp2, sp3, etc.) - Fourier expansion
+        // E = K * [C0 + C1*cos(theta) + C2*cos(2*theta)]
+        // This is more stable than harmonic (theta-theta0)^2 for large deviations
+        let sin_theta0_sq = 1.0 - cos_theta0 * cos_theta0;
+        let c2 = 1.0 / (4.0 * sin_theta0_sq);
+        let c1 = -4.0 * c2 * cos_theta0;
+        let c0 = c2 * (2.0 * cos_theta0 * cos_theta0 + 1.0);
+        
+        let cos_2theta = 2.0 * cos_theta * cos_theta - 1.0;
+        let energy = k_ijk * (c0 + c1 * cos_theta + c2 * cos_2theta);
+        // dE/d(cos_theta) = K * [C1 + 4*C2*cos(theta)]
+        let d_e_d_cos_theta = k_ijk * (c1 + 4.0 * c2 * cos_theta);
+        (energy, d_e_d_cos_theta)
+    };
 
-    let grad_theta_i = ((v_ji * cos_theta / (r_ji * r_ji)) - (v_jk / (r_ji * r_jk))) / sin_theta;
-    let grad_theta_k = ((v_jk * cos_theta / (r_jk * r_jk)) - (v_ji / (r_ji * r_jk))) / sin_theta;
+    // Forces: F = - dE/dx = - (dE/dcos_theta) * dcos_theta/dx
+    // d(cos_theta)/dx_i = ( (x_k - x_j)/|r_ji||r_jk| - cos_theta * (x_i - x_j)/|r_ji|^2 )
+    let grad_cos_i = (v_jk / (r_ji * r_jk)) - (v_ji * (cos_theta / (r_ji * r_ji)));
+    let grad_cos_k = (v_ji / (r_ji * r_jk)) - (v_jk * (cos_theta / (r_jk * r_jk)));
 
-    let f_i = grad_theta_i * (-d_e_d_theta);
-    let f_k = grad_theta_k * (-d_e_d_theta);
-    let f_j = -(f_i + f_k);
+    let f_i = grad_cos_i * (-d_e_d_cos_theta);
+    let f_k = grad_cos_k * (-d_e_d_cos_theta);
     
-    Some((energy, f_i, f_j, f_k))
+    // Clamp forces to prevent explosion in highly distorted structures
+    let f_i_clamped = f_i.clamp(DVec3::splat(-2000.0), DVec3::splat(2000.0));
+    let f_k_clamped = f_k.clamp(DVec3::splat(-2000.0), DVec3::splat(2000.0));
+    let f_j_clamped = -(f_i_clamped + f_k_clamped);
+    
+    Some((energy, f_i_clamped, f_j_clamped, f_k_clamped))
 }
 
 pub fn calculate_torsion(

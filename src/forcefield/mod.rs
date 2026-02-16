@@ -199,33 +199,65 @@ impl System {
                 }
             }
         }
+        
+        // Remove duplicates (e.g. if cell size is large or system is small)
+        neighbors.sort_unstable();
+        neighbors.dedup();
         neighbors
     }
 
-    pub(crate) fn get_exclusion_scale(&self, i: usize, j: usize, adj: &[Vec<usize>]) -> (bool, f64) {
-        if i == j { return (true, 0.0); }
-        
-        // 1-2 neighbors
-        for &n1 in &adj[i] {
-            if n1 == j { return (true, 0.0); }
-        }
-        
-        // 1-3 neighbors
-        for &n1 in &adj[i] {
-            for &n2 in &adj[n1] {
-                if n2 == j { return (true, 0.0); }
+        pub(crate) fn get_exclusion_scale(&self, i: usize, j: usize, adj: &[Vec<usize>]) -> (bool, f64) {
+
+            if i == j { return (true, 0.0); }
+
+            
+
+            // 1-2 neighbors: Strictly excluded from LJ
+
+            for &n1 in &adj[i] {
+
+                if n1 == j { return (true, 0.0); }
+
             }
-        }
-        
-        // 1-4 neighbors
-        for &n1 in &adj[i] {
-            for &n2 in &adj[n1] {
-                for &n3 in &adj[n2] {
-                    if n3 == j { return (false, 0.5); }
+
+            
+
+            // 1-3 neighbors: Small scale (0.1) to prevent collapse
+
+            for &n1 in &adj[i] {
+
+                for &n2 in &adj[n1] {
+
+                    if n2 == j { return (false, 0.1); }
+
                 }
+
             }
+
+            
+
+            // 1-4 neighbors: Standard scale 0.5
+
+            for &n1 in &adj[i] {
+
+                for &n2 in &adj[n1] {
+
+                    for &n3 in &adj[n2] {
+
+                        if n3 == j { return (false, 0.5); }
+
+                    }
+
+                }
+
+            }
+
+            
+
+            (false, 1.0)
+
         }
-        
-        (false, 1.0)
+
     }
-}
+
+    

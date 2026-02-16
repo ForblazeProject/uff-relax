@@ -13,7 +13,13 @@ fn test_large_system_parallel() {
     for x in 0..10 {
         for y in 0..10 {
             for z in 0..6 {
-                let pos = DVec3::new(x as f64 * spacing, y as f64 * spacing, z as f64 * spacing);
+                // Add tiny jitter to break perfect symmetry
+                let jitter = DVec3::new(
+                    (x as f64 * 0.13).sin() * 0.01,
+                    (y as f64 * 0.17).cos() * 0.01,
+                    (z as f64 * 0.19).sin() * 0.01,
+                );
+                let pos = DVec3::new(x as f64 * spacing, y as f64 * spacing, z as f64 * spacing) + jitter;
                 atoms.push(Atom::new(6, pos));
             }
         }
