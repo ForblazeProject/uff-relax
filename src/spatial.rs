@@ -46,9 +46,13 @@ impl CellList {
         };
 
         let span = max_p - min_p;
-        let dx = (span.x / cutoff).ceil() as usize + 1;
-        let dy = (span.y / cutoff).ceil() as usize + 1;
-        let dz = (span.z / cutoff).ceil() as usize + 1;
+        let dx = (span.x / cutoff).floor() as usize;
+        let dy = (span.y / cutoff).floor() as usize;
+        let dz = (span.z / cutoff).floor() as usize;
+        
+        let dx = dx.max(1);
+        let dy = dy.max(1);
+        let dz = dz.max(1);
         
         let cell_size = DVec3::new(span.x / dx as f64, span.y / dy as f64, span.z / dz as f64);
         let mut cells = vec![Vec::new(); dx * dy * dz];
