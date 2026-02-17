@@ -123,13 +123,9 @@ impl System {
         };
 
         if use_parallel {
-            if num_threads > 1 {
-                let pool = rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
-                pool.install(|| self.compute_forces_parallel(cutoff))
-            } else {
-                crate::init_parallelism(None);
-                self.compute_forces_parallel(cutoff)
-            }
+            let threads = if num_threads > 0 { num_threads } else { 4 };
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+            pool.install(|| self.compute_forces_parallel(cutoff))
         } else {
             self.compute_forces_serial(cutoff)
         }

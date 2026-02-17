@@ -9,7 +9,7 @@ A high-performance, parallelized molecular structure optimizer for Rust, powered
 ## Features
 
 - 🚀 **High Performance**: Optimized force evaluations with Cell Lists for efficient neighbor searching.
-- 🧵 **Parallel Processing**: Scalable multi-threading via Rayon, automatically enabled for large systems (>1000 atoms).
+- 🧵 **Parallel Processing**: Scalable multi-threading via Rayon, automatically enabled for large systems (>1000 atoms) and defaulting to 4 threads for optimal performance.
 - 💠 **PBC Support**: Periodic boundary conditions for Orthorhombic and Triclinic systems.
 - 🧪 **Smart Type Assignment**: Automatically infers UFF atom types from atomic numbers and connectivity.
 - 🦀 **Pure Rust**: Fast, safe, and easy to integrate.
@@ -20,8 +20,10 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uff-relax = "1.0.0"
-glam = "0.31"
+uff-relax = "1.0.5" # Use the latest version
+glam = { version = "0.31", features = ["serde"] }
+rayon = "1.11"
+serde = { version = "1.0", features = ["derive"] }
 ```
 
 ## Quick Start
@@ -46,7 +48,7 @@ fn main() {
     let mut system = System::new(atoms, bonds, UnitCell::new_none());
 
     // 4. Run Optimizer
-    let optimizer = UffOptimizer::new(1000, 1e-3);
+    let optimizer = UffOptimizer::new(1000, 1e-3).with_verbose(true);
     optimizer.optimize(&mut system);
 
     println!("Final Energy: {:.4} kcal/mol", system.compute_forces().total);
@@ -65,8 +67,8 @@ cargo run --example benzene
 
 This crate includes specialized benchmarks to measure scaling performance and handle large-scale systems. These are standalone binaries (`harness = false`) to ensure minimal overhead.
 
-### 1. Scaling Threshold
-Measures the efficiency of parallelization as the number of atoms increases.
+### 1. Parallelization Threshold (1 vs 2 threads)
+Measures the efficiency of parallelization by comparing 1 and 2 threads as the number of atoms increases. This benchmark helped establish the initial `PARALLEL_THRESHOLD`.
 ```bash
 cargo bench --bench threshold
 ```
@@ -75,6 +77,12 @@ cargo bench --bench threshold
 Simulates a system with 100,000 atoms to verify stability and memory efficiency in large-scale optimizations.
 ```bash
 cargo bench --bench large_system_bench
+```
+
+### 3. Thread Scalability Comparison
+Compares the performance across various thread counts (1, 2, 4, 8, etc.) for different system sizes, identifying optimal parallelization strategies.
+```bash
+cargo bench --bench threads_comparison
 ```
 
 ## License

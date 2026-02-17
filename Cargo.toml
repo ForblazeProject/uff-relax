@@ -1,6 +1,6 @@
 [package]
 name = "uff-relax"
-version = "1.0.4"
+version = "1.0.5"
 edition = "2024"
 authors = ["Forblaze Project <forblazeproject@gmail.com>"]
 description = "A high-performance, parallelized molecular structure optimizer using the Universal Force Field (UFF)."
@@ -25,4 +25,9 @@ harness = false
 [[bench]]
 name = "large_system_bench"
 path = "benches/large_system.rs"
+harness = false
+
+[[bench]]
+name = "threads_comparison"
+path = "benches/threads_comparison.rs"
 harness = false
