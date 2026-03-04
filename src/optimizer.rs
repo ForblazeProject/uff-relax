@@ -1,5 +1,6 @@
 use tracing;
 use crate::forcefield::System;
+use crate::forcefield::interactions::get_bond_equilibrium_dist;
 use glam::DVec3;
 use web_time::Instant;
 use std::collections::VecDeque;
@@ -405,6 +406,18 @@ impl UffOptimizer {
             }
         }
 
+        // Abnormal bond detection (Mechanical entanglement check)
+        let mut abnormal_bonds = Vec::new();
+        for bond in &system.bonds {
+            let (i, j) = bond.atom_indices;
+            let current_dist = system.cell.distance_vector(system.atoms[i].position, system.atoms[j].position).length();
+            if let Some(r0) = get_bond_equilibrium_dist(&system.atoms[i].uff_type, &system.atoms[j].uff_type, bond.order) {
+                if current_dist > r0 * 1.3 {
+                    abnormal_bonds.push((i, j, current_dist, r0));
+                }
+            }
+        }
+
         tracing::info!("{:-<80}", "");
         tracing::info!("=== Optimization Finished ===");
         tracing::info!("Reason: {:<20}", final_status);
@@ -417,6 +430,18 @@ impl UffOptimizer {
         tracing::info!("Final Fmax:   {:<15.4} kcal/mol/Å", fmax_hist.back().unwrap_or(&0.0));
         tracing::info!("Final FRMS:   {:<15.4} kcal/mol/Å", frms_hist.back().unwrap_or(&0.0));
         tracing::info!("Min Distance: {:<15.4} Å (Atoms {} and {})", min_dist, min_pair.0 + 1, min_pair.1 + 1);
+
+        if !abnormal_bonds.is_empty() {
+            tracing::warn!("!!! ABNORMAL BONDS DETECTED ({} total) !!!", abnormal_bonds.len());
+            for (i, j, dist, r0) in abnormal_bonds.iter().take(3) {
+                tracing::warn!("  Bond {}-{} : Length {:.4} Å (Equiv: {:.4} Å, Dev: {:.1}%)", 
+                    i+1, j+1, dist, r0, (dist/r0 - 1.0)*100.0);
+            }
+            if abnormal_bonds.len() > 3 {
+                tracing::warn!("  ... and {} more abnormal bonds.", abnormal_bonds.len() - 3);
+            }
+        }
+
         tracing::info!("{:>80}", "(c) 2026 Forblaze Project");
         tracing::info!("{:-<80}\n", "");
     }

@@ -7,6 +7,19 @@ pub struct InteractionResult {
     pub energy: f64,
     pub forces: Vec<(usize, DVec3)>,
 }
+pub fn get_bond_equilibrium_dist(
+    type_i: &UffAtomType,
+    type_j: &UffAtomType,
+    order: f32,
+) -> Option<f64> {
+    let pi = get_uff_params(type_i)?;
+    let pj = get_uff_params(type_j)?;
+
+    let r_bo = -0.1332 * (pi.r1 + pj.r1) * (order as f64).ln().max(0.0);
+    let r_en = pi.r1 * pj.r1 * (pi.chi.sqrt() - pj.chi.sqrt()).powi(2) / (pi.chi * pi.r1 + pj.chi * pj.r1);
+    let r0 = pi.r1 + pj.r1 + r_bo - r_en;
+    Some(r0)
+}
 
 pub fn calculate_bond(
     _i: usize, 
@@ -21,12 +34,9 @@ pub fn calculate_bond(
     let dist = dist_vec.length();
     if dist < 1e-6 { return None; }
 
+    let r0 = get_bond_equilibrium_dist(type_i, type_j, order)?;
     let pi = get_uff_params(type_i)?;
     let pj = get_uff_params(type_j)?;
-
-    let r_bo = -0.1332 * (pi.r1 + pj.r1) * (order as f64).ln().max(0.0);
-    let r_en = pi.r1 * pj.r1 * (pi.chi.sqrt() - pj.chi.sqrt()).powi(2) / (pi.chi * pi.r1 + pj.chi * pj.r1);
-    let r0 = pi.r1 + pj.r1 + r_bo - r_en;
 
     let k = 664.12 * pi.z_star * pj.z_star / (r0.powi(3));
     let dr = dist - r0;

@@ -15,6 +15,7 @@ A high-performance, parallelized molecular structure optimizer for Rust, powered
 - 🔄 **Async Optimizer**: Non-blocking `optimize_async` API with customizable step hooks, perfect for responsive UIs.
 - 💠 **PBC Support**: Periodic boundary conditions for Orthorhombic and Triclinic systems.
 - 🧪 **Smart Type Assignment**: Automatically infers UFF atom types from atomic numbers and connectivity.
+- 🦐 **Structure Validation**: Automatic detection of abnormal overlaps and stretched bonds (e.g., mechanical entanglements or interlocked rings) after optimization.
 - 🦀 **Pure Rust**: Fast, safe, and multi-platform.
 
 ## Installation
@@ -23,7 +24,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uff-relax = "1.0.6" # Use the latest version
+uff-relax = "1.0.7" # Use the latest version
 glam = { version = "0.31", features = ["serde"] }
 rayon = "1.11"
 serde = { version = "1.0", features = ["derive"] }
@@ -31,7 +32,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 For **WebAssembly** support, enable the `wasm` feature:
 ```toml
-uff-relax = { version = "1.0.6", features = ["wasm"] }
+uff-relax = { version = "1.0.7", features = ["wasm"] }
 ```
 
 ## Quick Start
