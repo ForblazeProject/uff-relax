@@ -135,31 +135,42 @@ impl System {
         torsion_energy + inv_energy
     }
 
-    pub(crate) fn compute_non_bonded_forces_parallel_cell_list(&mut self, adj: &[Vec<usize>], cutoff: f64) -> f64 {
+    pub(crate) fn compute_non_bonded_forces_parallel_cell_list(&mut self, adj: &[Vec<usize>], cutoff: f64) -> (f64, f64) {
         let n = self.atoms.len();
         let cutoff_sq = cutoff * cutoff;
         let positions: Vec<DVec3> = self.atoms.iter().map(|a| a.position).collect();
         let cl = crate::spatial::CellList::build(&positions, &self.cell, cutoff);
 
-        let (total_energy, all_forces) = (0..n).into_par_iter().fold(|| (0.0, vec![DVec3::ZERO; n]), |(mut acc_e, mut acc_f), i| {
+        let (total_energy, all_forces) = (0..n).into_par_iter().fold(|| ((0.0, 0.0), vec![DVec3::ZERO; n]), |(mut acc_e, mut acc_f), i| {
             let p_i = self.atoms[i].position;
+            let q_i = self.atoms[i].charge;
             let neighbors = self.get_cell_neighbors(&cl, p_i, cutoff);
             for &j in &neighbors {
                 if i >= j { continue; }
-                let (is_excl, scale) = self.get_exclusion_scale(i, j, adj);
-                if is_excl { continue; }
                 let diff = self.cell.distance_vector(self.atoms[i].position, self.atoms[j].position);
-                if let Some((e, f_vec)) = calculate_lj(diff, &self.atoms[i].uff_type, &self.atoms[j].uff_type, cutoff_sq, scale) {
-                    acc_e += e;
-                    acc_f[i] += f_vec;
-                    acc_f[j] -= f_vec;
+                
+                let (is_excl, scale) = self.get_exclusion_scale(i, j, adj);
+                if !is_excl {
+                    // LJ
+                    if let Some((e, f_vec)) = calculate_lj(diff, &self.atoms[i].uff_type, &self.atoms[j].uff_type, cutoff_sq, scale) {
+                        acc_e.0 += e;
+                        acc_f[i] += f_vec;
+                        acc_f[j] -= f_vec;
+                    }
+                    // Electrostatic
+                    let q_j = self.atoms[j].charge;
+                    if let Some((e, f_vec)) = calculate_coulomb(diff, q_i, q_j, cutoff, 0.5) {
+                        acc_e.1 += e;
+                        acc_f[i] += f_vec;
+                        acc_f[j] -= f_vec;
+                    }
                 }
             }
             (acc_e, acc_f)
-        }).reduce(|| (0.0, vec![DVec3::ZERO; n]), |(e1, f1), (e2, f2)| {
+        }).reduce(|| ((0.0, 0.0), vec![DVec3::ZERO; n]), |(e1, f1), (e2, f2)| {
             let mut f_sum = f1;
             for (a, b) in f_sum.iter_mut().zip(f2.iter()) { *a += *b; }
-            (e1 + e2, f_sum)
+            ((e1.0 + e2.0, e1.1 + e2.1), f_sum)
         });
 
         for i in 0..n { self.atoms[i].force += all_forces[i]; }

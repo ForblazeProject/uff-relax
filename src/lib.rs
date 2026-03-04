@@ -39,8 +39,9 @@ pub mod spatial;
 pub use atom::{Atom, Bond, UffAtomType};
 pub use cell::{UnitCell, CellType};
 pub use forcefield::{System, EnergyTerms};
-pub use optimizer::UffOptimizer;
+pub use optimizer::{UffOptimizer, StepHook};
 pub use params::{get_uff_params, element_symbol};
+pub use forcefield::interactions::calculate_coulomb;
 
 use std::sync::Once;
 static START: Once = Once::new();

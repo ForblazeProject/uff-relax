@@ -9,10 +9,13 @@ A high-performance, parallelized molecular structure optimizer for Rust, powered
 ## Features
 
 - 🚀 **High Performance**: Optimized force evaluations with Cell Lists for efficient neighbor searching.
-- 🧵 **Parallel Processing**: Scalable multi-threading via Rayon, automatically enabled for large systems (>1000 atoms) and defaulting to 4 threads for optimal performance.
+- 🧵 **Parallel Processing**: Scalable multi-threading via Rayon, automatically enabled for large systems (>1000 atoms).
+- ⚡ **Electrostatics**: Supported via the **Wolf Summation Method** (Damped Coulomb Summation) for efficient and accurate partial charge interactions.
+- 🌐 **Wasm Support**: Fully compatible with WebAssembly for browser-based molecular modeling.
+- 🔄 **Async Optimizer**: Non-blocking `optimize_async` API with customizable step hooks, perfect for responsive UIs.
 - 💠 **PBC Support**: Periodic boundary conditions for Orthorhombic and Triclinic systems.
 - 🧪 **Smart Type Assignment**: Automatically infers UFF atom types from atomic numbers and connectivity.
-- 🦀 **Pure Rust**: Fast, safe, and easy to integrate.
+- 🦀 **Pure Rust**: Fast, safe, and multi-platform.
 
 ## Installation
 
@@ -20,10 +23,15 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uff-relax = "1.0.5" # Use the latest version
+uff-relax = "1.0.6" # Use the latest version
 glam = { version = "0.31", features = ["serde"] }
 rayon = "1.11"
 serde = { version = "1.0", features = ["derive"] }
+```
+
+For **WebAssembly** support, enable the `wasm` feature:
+```toml
+uff-relax = { version = "1.0.6", features = ["wasm"] }
 ```
 
 ## Quick Start
@@ -33,23 +41,28 @@ use uff_relax::{System, Atom, Bond, UnitCell, UffOptimizer};
 use glam::DVec3;
 
 fn main() {
-    // 1. Define Atoms
+    // 1. Define Atoms with partial charges
     let atoms = vec![
-        Atom::new(6, DVec3::new(0.0, 0.0, 0.0)),
-        Atom::new(6, DVec3::new(1.3, 0.0, 0.0)),
+        Atom::new(1, DVec3::new(0.0, 0.0, 0.0)).with_charge(0.41),
+        Atom::new(8, DVec3::new(0.0, 0.0, 0.9)).with_charge(-0.82),
+        Atom::new(1, DVec3::new(0.0, 0.8, 1.2)).with_charge(0.41),
     ];
 
     // 2. Define Bonds
     let bonds = vec![
         Bond { atom_indices: (0, 1), order: 1.0 },
+        Bond { atom_indices: (1, 2), order: 1.0 },
     ];
 
     // 3. Create System
     let mut system = System::new(atoms, bonds, UnitCell::new_none());
 
-    // 4. Run Optimizer
+    // 4. Run Optimizer (Synchronous)
     let optimizer = UffOptimizer::new(1000, 1e-3).with_verbose(true);
     optimizer.optimize(&mut system);
+
+    // 5. Async (Wasm/UI) Example
+    // optimizer.optimize_async(&mut system).await;
 
     println!("Final Energy: {:.4} kcal/mol", system.compute_forces().total);
 }

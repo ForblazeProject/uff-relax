@@ -1,6 +1,6 @@
 [package]
 name = "uff-relax"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2024"
 authors = ["Forblaze Project <forblazeproject@gmail.com>"]
 description = "A high-performance, parallelized molecular structure optimizer using the Universal Force Field (UFF)."
@@ -14,9 +14,22 @@ readme = "README.md"
 glam = { version = "0.31.0", features = ["serde"] }
 rayon = "1.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
+tracing = "0.1"
+web-time = "1.1"
+
+# Wasm-specific dependencies (optional)
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", features = ["console", "Window"], optional = true }
+
+[features]
+default = []
+wasm = ["js-sys", "wasm-bindgen", "wasm-bindgen-futures", "web-sys"]
 
 [dev-dependencies]
 rand = "0.8"
+futures = "0.3"
 
 [[bench]]
 name = "threshold"
@@ -30,4 +43,9 @@ harness = false
 [[bench]]
 name = "threads_comparison"
 path = "benches/threads_comparison.rs"
+harness = false
+
+[[bench]]
+name = "electrostatic_performance"
+path = "benches/electrostatic_performance.rs"
 harness = false

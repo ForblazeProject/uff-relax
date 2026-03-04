@@ -38,6 +38,56 @@ pub fn calculate_bond(
     Some((energy, f_vec))
 }
 
+/// Rational approximation of erfc(x) for performance.
+/// Max error ~ 1.2e-7.
+fn fast_erfc(x: f64) -> f64 {
+    let t = 1.0 / (1.0 + 0.5 * x.abs());
+    // Abramowitz and Stegun approximation
+    let ans = t * (-x * x - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277))))))))).exp();
+    if x >= 0.0 { ans } else { 2.0 - ans }
+}
+
+/// Wolf method constants
+const WOLF_ALPHA: f64 = 0.35; // Å^-1 (Increased from 0.25 to smooth cutoff transitions)
+
+pub fn calculate_coulomb(
+    dist_vec: DVec3,
+    qi: f64,
+    qj: f64,
+    cutoff: f64,
+    scale: f64,
+) -> Option<(f64, DVec3)> {
+    if qi.abs() < 1e-12 || qj.abs() < 1e-12 { return None; }
+
+    let dist_sq = dist_vec.length_squared();
+    if dist_sq < cutoff * cutoff && dist_sq > 1e-12 {
+        let dist = dist_sq.sqrt();
+        let r_inv = 1.0 / dist;
+        let r_inv2 = r_inv * r_inv;
+
+        let erfc_rc = fast_erfc(WOLF_ALPHA * cutoff);
+        let wolf_v_rc = erfc_rc / cutoff;
+
+        let two_alpha_sqrt_pi = 2.0 * WOLF_ALPHA / (std::f64::consts::PI.sqrt());
+        let wolf_f_rc = (erfc_rc / (cutoff * cutoff)) + (two_alpha_sqrt_pi * (-WOLF_ALPHA * WOLF_ALPHA * cutoff * cutoff).exp() / cutoff);
+
+        let r_alpha = WOLF_ALPHA * dist;
+        let erfc_r = fast_erfc(r_alpha);
+        let qiqj = 332.0637 * qi * qj * scale; // Apply scaling here
+        
+        // Potential: qiqj * [ erfc(ar)/r - erfc(aRc)/Rc ]
+        let energy = qiqj * (erfc_r * r_inv - wolf_v_rc);
+        
+        // Force magnitude: -dE/dr
+        // F = qiqj * [ erfc(ar)/r^2 + (2a/sqrt(pi))*exp(-a^2 r^2)/r - wolf_f_rc_term ]
+        let f_mag = qiqj * (erfc_r * r_inv2 + two_alpha_sqrt_pi * (-r_alpha * r_alpha).exp() * r_inv - wolf_f_rc);
+        
+        let f_vec = dist_vec.normalize() * f_mag.clamp(-1000.0, 1000.0);
+        return Some((energy, f_vec));
+    }
+    None
+}
+
 pub fn calculate_lj(
     dist_vec: DVec3,
     type_i: &UffAtomType,

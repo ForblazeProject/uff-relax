@@ -111,28 +111,47 @@ impl System {
         energy
     }
 
-    pub(crate) fn compute_non_bonded_forces_sequential_cell_list(&mut self, adj: &[Vec<usize>], cutoff: f64) -> f64 {
+    pub(crate) fn compute_non_bonded_forces_sequential_cell_list(&mut self, adj: &[Vec<usize>], cutoff: f64) -> (f64, f64) {
         let n = self.atoms.len();
         let cutoff_sq = cutoff * cutoff;
-        let mut energy = 0.0;
+        let mut energy_lj = 0.0;
+        let mut energy_coul = 0.0;
         let positions: Vec<DVec3> = self.atoms.iter().map(|a| a.position).collect();
         let cl = crate::spatial::CellList::build(&positions, &self.cell, cutoff);
 
         for i in 0..n {
             let p_i = self.atoms[i].position;
+            let q_i = self.atoms[i].charge;
             let neighbors = self.get_cell_neighbors(&cl, p_i, cutoff);
             for &j in &neighbors {
                 if i >= j { continue; }
-                let (is_excl, scale) = self.get_exclusion_scale(i, j, adj);
-                if is_excl { continue; }
                 let diff = self.cell.distance_vector(self.atoms[i].position, self.atoms[j].position);
-                if let Some((e, f_vec)) = calculate_lj(diff, &self.atoms[i].uff_type, &self.atoms[j].uff_type, cutoff_sq, scale) {
-                    energy += e;
-                    self.atoms[i].force += f_vec;
-                    self.atoms[j].force -= f_vec;
+                
+                // LJ
+                let (is_excl, scale) = self.get_exclusion_scale(i, j, adj);
+                if !is_excl {
+                    if let Some((e, f_vec)) = calculate_lj(diff, &self.atoms[i].uff_type, &self.atoms[j].uff_type, cutoff_sq, scale) {
+                        energy_lj += e;
+                        self.atoms[i].force += f_vec;
+                        self.atoms[j].force -= f_vec;
+                    }
+                }
+                
+                // Electrostatic (Standard UFF: NO exclusions for point charges, or 1-2, 1-3 excluded?)
+                // Actually, Wolf method often applies to all pairs within cutoff or with exclusions.
+                // In md_engine, it seems to use exclusions for EVERYTHING non-bonded.
+                // Let's re-check md_engine's rebuild_neighbor_list_csr: "if i >= j || system.exclusions[i].binary_search(&j).is_ok() { continue; }"
+                // So yes, it uses exclusions.
+                if !is_excl {
+                    let q_j = self.atoms[j].charge;
+                    if let Some((e, f_vec)) = calculate_coulomb(diff, q_i, q_j, cutoff, 0.5) {
+                        energy_coul += e;
+                        self.atoms[i].force += f_vec;
+                        self.atoms[j].force -= f_vec;
+                    }
                 }
             }
         }
-        energy
+        (energy_lj, energy_coul)
     }
 }

@@ -1,4 +1,5 @@
 pub mod interactions;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod parallel;
 pub mod sequential;
 
@@ -7,6 +8,7 @@ use crate::cell::UnitCell;
 use crate::params::element_symbol;
 use glam::DVec3;
 
+#[cfg(not(target_arch = "wasm32"))]
 const PARALLEL_THRESHOLD: usize = 1000;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -14,6 +16,7 @@ pub struct EnergyTerms {
     pub bond: f64,
     pub angle: f64,
     pub torsion: f64,
+    pub electrostatic: f64,
     pub non_bonded: f64,
     pub total: f64,
 }
@@ -111,23 +114,40 @@ impl System {
         self.compute_forces_with_threads(0, 6.0) // Default auto, cutoff 6.0
     }
 
-    pub fn compute_forces_with_threads(&mut self, num_threads: usize, cutoff: f64) -> EnergyTerms {
-        if num_threads == 1 {
-            return self.compute_forces_serial(cutoff);
+    pub fn compute_forces_with_threads(&mut self, _num_threads: usize, _cutoff: f64) -> EnergyTerms {
+        #[cfg(target_arch = "wasm32")]
+        {
+            return self.compute_forces_serial(_cutoff);
         }
 
-        let use_parallel = if num_threads > 1 {
-            true
-        } else {
-            self.atoms.len() >= PARALLEL_THRESHOLD
-        };
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let num_threads = _num_threads;
+            let cutoff = _cutoff;
+            if num_threads == 1 {
+                return self.compute_forces_serial(cutoff);
+            }
 
-        if use_parallel {
-            let threads = if num_threads > 0 { num_threads } else { 4 };
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
-            pool.install(|| self.compute_forces_parallel(cutoff))
-        } else {
-            self.compute_forces_serial(cutoff)
+            let use_parallel = if num_threads > 1 {
+                true
+            } else {
+                self.atoms.len() >= PARALLEL_THRESHOLD
+            };
+
+            if use_parallel {
+                let threads = if num_threads > 0 { 
+                    num_threads 
+                } else { 
+                    std::env::var("RAYON_NUM_THREADS")
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(4)
+                };
+                let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+                pool.install(|| self.compute_forces_parallel(cutoff))
+            } else {
+                self.compute_forces_serial(cutoff)
+            }
         }
     }
 
@@ -145,12 +165,15 @@ impl System {
         energy.bond = self.compute_bond_forces_sequential();
         energy.angle = self.compute_angle_forces_sequential();
         energy.torsion = self.compute_torsion_forces_sequential();
-        energy.non_bonded = self.compute_non_bonded_forces_sequential_cell_list(&adj, cutoff);
-        energy.total = energy.bond + energy.angle + energy.torsion + energy.non_bonded;
+        let (nb, el) = self.compute_non_bonded_forces_sequential_cell_list(&adj, cutoff);
+        energy.non_bonded = nb;
+        energy.electrostatic = el;
+        energy.total = energy.bond + energy.angle + energy.torsion + energy.non_bonded + energy.electrostatic;
         
         energy
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn compute_forces_parallel(&mut self, cutoff: f64) -> EnergyTerms {
         let mut energy = EnergyTerms::default();
         for atom in &mut self.atoms { atom.force = DVec3::ZERO; }
@@ -165,8 +188,10 @@ impl System {
         energy.bond = self.compute_bond_forces_parallel();
         energy.angle = self.compute_angle_forces_parallel();
         energy.torsion = self.compute_torsion_forces_parallel();
-        energy.non_bonded = self.compute_non_bonded_forces_parallel_cell_list(&adj, cutoff);
-        energy.total = energy.bond + energy.angle + energy.torsion + energy.non_bonded;
+        let (nb, el) = self.compute_non_bonded_forces_parallel_cell_list(&adj, cutoff);
+        energy.non_bonded = nb;
+        energy.electrostatic = el;
+        energy.total = energy.bond + energy.angle + energy.torsion + energy.non_bonded + energy.electrostatic;
         
         energy
     }

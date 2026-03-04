@@ -23,6 +23,8 @@ pub struct Atom {
     pub position: DVec3,
     /// Current force acting on the atom (kcal/mol/Å).
     pub force: DVec3,
+    /// Partial charge of the atom (e).
+    pub charge: f64,
     /// Internal UFF atom type label (assigned automatically).
     pub uff_type: UffAtomType,
 }
@@ -34,8 +36,15 @@ impl Atom {
             element,
             position,
             force: DVec3::ZERO,
+            charge: 0.0,
             uff_type: UffAtomType::unknown(),
         }
+    }
+
+    /// Sets the partial charge of the atom.
+    pub fn with_charge(mut self, charge: f64) -> Self {
+        self.charge = charge;
+        self
     }
 }
 
